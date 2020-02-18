@@ -24,13 +24,13 @@ export type OutputFormat = {|
     from: Bundle,
     bundle: Bundle,
     assets: Set<Asset>,
-    scope: any,
-  ): Array<any>,
+    path: any,
+  ): void,
   generateExternalImport(
     bundle: Bundle,
     external: ExternalModule,
-    scope: any,
-  ): any,
+    path: any,
+  ): void,
   generateExports(
     bundleGraph: BundleGraph,
     bundle: Bundle,

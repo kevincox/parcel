@@ -15,28 +15,36 @@ import invariant from 'assert';
 import {relative} from 'path';
 import ThrowableDiagnostic from '@parcel/diagnostic';
 import rename from '../renamer';
+import {removeReplaceBinding} from '../utils';
 
 export function generateBundleImports(
   from: Bundle,
   bundle: Bundle,
   assets: Set<Asset>,
+  path: any,
 ) {
   let specifiers = [...assets].map(asset => {
     let id = t.identifier(asset.meta.exportsIdentifier);
     return t.importSpecifier(id, id);
   });
 
-  return [
+  let [decl] = path.unshiftContainer('body', [
     t.importDeclaration(
       specifiers,
       t.stringLiteral(relativeBundlePath(from, bundle)),
     ),
-  ];
+  ]);
+
+  for (let spec of decl.get('specifiers')) {
+    removeReplaceBinding(path.scope, spec.node.local.name, spec);
+    path.scope.getBinding(spec.node.local.name).kind = 'module';
+  }
 }
 
 export function generateExternalImport(
   bundle: Bundle,
   external: ExternalModule,
+  path: any,
 ) {
   let {source, specifiers, isCommonJS} = external;
   let defaultSpecifier = null;
@@ -74,7 +82,17 @@ export function generateExternalImport(
     );
   }
 
-  return statements;
+  let decls = path.unshiftContainer('body', statements);
+  for (let decl of decls) {
+    console.log(decl);
+    let specifiers = decl.get('specifiers');
+    for (let specifier of specifiers) {
+      for (let name of Object.keys(specifier.getBindingIdentifiers())) {
+        removeReplaceBinding(path.scope, name, specifier);
+        path.scope.getBinding(name).kind = 'module';
+      }
+    }
+  }
 }
 
 export function generateExports(

@@ -7,7 +7,7 @@ import invariant from 'assert';
 import {relativeBundlePath} from '@parcel/utils';
 import {isEntry, isReferenced} from '../utils';
 
-const IMPORT_TEMPLATE = template('var IDENTIFIER = parcelRequire(ASSET_ID)');
+const IMPORT_TEMPLATE = template.expression('parcelRequire(ASSET_ID)');
 const EXPORT_TEMPLATE = template(
   'parcelRequire.register(ASSET_ID, IDENTIFIER)',
 );
@@ -17,27 +17,24 @@ export function generateBundleImports(
   from: Bundle,
   bundle: Bundle,
   assets: Set<Asset>,
+  path: any,
 ) {
-  let statements = [];
-
   if (from.env.isWorker()) {
-    statements.push(
+    path.unshiftContainer('body', [
       IMPORTSCRIPTS_TEMPLATE({
         BUNDLE: t.stringLiteral(relativeBundlePath(from, bundle)),
       }),
-    );
+    ]);
   }
 
   for (let asset of assets) {
-    statements.push(
-      IMPORT_TEMPLATE({
-        IDENTIFIER: t.identifier(asset.meta.exportsIdentifier),
-        ASSET_ID: t.stringLiteral(asset.id),
-      }),
-    );
+    // var ${asset.meta.exportsIdentifier}; was inserted already, add RHS
+    let [decl] = path.scope
+      .getBinding(asset.meta.exportsIdentifier)
+      .path.get('init')
+      .replaceWith(IMPORT_TEMPLATE({ASSET_ID: t.stringLiteral(asset.id)}));
+    path.scope.getBinding('parcelRequire').reference(decl.get('callee'));
   }
-
-  return statements;
 }
 
 export function generateExternalImport() {

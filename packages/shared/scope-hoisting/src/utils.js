@@ -97,3 +97,18 @@ function dereferenceIdentifier(node, scope) {
     }
   }
 }
+
+export function removeReplaceBinding(scope: any, name: string, newPath: any) {
+  let binding = scope.getBinding(name);
+  let old = binding.path;
+  binding.path = newPath;
+  if (t.isIdentifier(old.node.id)) {
+    old.node.id.name = scope.generateUid();
+    old.remove();
+  } else {
+    // ObjectPattern
+    let id = old.getBindingIdentifierPaths()[name];
+    id.node.name = scope.generateUid();
+    id.parentPath.remove();
+  }
+}

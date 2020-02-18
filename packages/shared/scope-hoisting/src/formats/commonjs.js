@@ -15,6 +15,7 @@ import {relative} from 'path';
 import {relativeBundlePath} from '@parcel/utils';
 import ThrowableDiagnostic from '@parcel/diagnostic';
 import rename from '../renamer';
+import {removeReplaceBinding} from '../utils';
 
 const REQUIRE_TEMPLATE = template('require(BUNDLE)');
 const EXPORT_TEMPLATE = template('exports.NAME = IDENTIFIER');
@@ -78,7 +79,7 @@ export function generateBundleImports(
   from: Bundle,
   bundle: Bundle,
   assets: Set<Asset>,
-  scope: any,
+  path: any,
 ) {
   let specifiers = [...assets].map(asset => {
     let id = t.identifier(asset.meta.exportsIdentifier);
@@ -90,21 +91,33 @@ export function generateBundleImports(
   });
 
   if (specifiers.length > 0) {
-    return generateDestructuringAssignment(
-      bundle.env,
-      specifiers,
-      statement.expression,
-      scope,
+    let decls = path.unshiftContainer(
+      'body',
+      generateDestructuringAssignment(
+        bundle.env,
+        specifiers,
+        statement.expression,
+        path,
+      ),
     );
-  }
 
-  return [statement];
+    for (let decl of decls) {
+      let next = decl.get('declarations.0');
+      for (let [name] of (Object.entries(
+        decl.getBindingIdentifierPaths(),
+      ): Array<[string, any]>)) {
+        removeReplaceBinding(path.scope, name, next);
+      }
+    }
+  } else {
+    path.unshiftContainer('body', [statement]);
+  }
 }
 
 export function generateExternalImport(
   bundle: Bundle,
   external: ExternalModule,
-  scope: any,
+  path: any,
 ) {
   let {source, specifiers, isCommonJS} = external;
   let statements = [];
@@ -133,7 +146,7 @@ export function generateExternalImport(
   // to a variable first and then create additional variables for each specifier based on that.
   // Otherwise, if just one category is imported, just assign and require all at once.
   if (categories.size > 1) {
-    let name = scope.generateUid(source);
+    let name = path.scope.generateUid(source);
     statements.push(
       ASSIGN_TEMPLATE({
         SPECIFIERS: t.identifier(name),
@@ -177,7 +190,7 @@ export function generateExternalImport(
           bundle.env,
           properties,
           t.identifier(name),
-          scope,
+          path.scope,
         ),
       );
     }
@@ -218,7 +231,7 @@ export function generateExternalImport(
         REQUIRE_TEMPLATE({
           BUNDLE: t.stringLiteral(source),
         }).expression,
-        scope,
+        path.scope,
       ),
     );
   } else {
@@ -229,7 +242,15 @@ export function generateExternalImport(
     );
   }
 
-  return statements;
+  let decls = path.unshiftContainer('body', statements);
+  for (let decl of decls) {
+    let next = decl.get('declarations.0');
+    for (let [name] of (Object.entries(decl.getBindingIdentifierPaths()): Array<
+      [string, any],
+    >)) {
+      removeReplaceBinding(path.scope, name, next);
+    }
+  }
 }
 
 export function generateExports(
@@ -254,7 +275,6 @@ export function generateExports(
       }),
     ]);
     path.scope.getBinding(exportsId).reference(decl.get('expression.right'));
-    console.log('TODO commonjs 1');
   }
 
   let entry = bundle.getMainEntry();
