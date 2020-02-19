@@ -36,8 +36,7 @@ export function generateBundleImports(
   ]);
 
   for (let spec of decl.get('specifiers')) {
-    removeReplaceBinding(path.scope, spec.node.local.name, spec);
-    path.scope.getBinding(spec.node.local.name).kind = 'module';
+    removeReplaceBinding(path.scope, spec.node.local.name, spec, 'module');
   }
 }
 
@@ -84,12 +83,10 @@ export function generateExternalImport(
 
   let decls = path.unshiftContainer('body', statements);
   for (let decl of decls) {
-    console.log(decl);
     let specifiers = decl.get('specifiers');
     for (let specifier of specifiers) {
       for (let name of Object.keys(specifier.getBindingIdentifiers())) {
-        removeReplaceBinding(path.scope, name, specifier);
-        path.scope.getBinding(name).kind = 'module';
+        removeReplaceBinding(path.scope, name, specifier, 'module');
       }
     }
   }

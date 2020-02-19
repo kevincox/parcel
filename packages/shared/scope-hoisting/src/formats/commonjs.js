@@ -22,9 +22,7 @@ const EXPORT_TEMPLATE = template('exports.NAME = IDENTIFIER');
 const MODULE_EXPORTS_TEMPLATE = template('module.exports = IDENTIFIER');
 const INTEROP_TEMPLATE = template('$parcel$interopDefault(MODULE)');
 const ASSIGN_TEMPLATE = template('var SPECIFIERS = MODULE');
-const NAMESPACE_TEMPLATE = template(
-  '$parcel$exportWildcard(NAMESPACE, MODULE)',
-);
+const NAMESPACE_TEMPLATE = template('$parcel$exportWildcard({}, MODULE)');
 
 // List of engines that support object destructuring syntax
 const DESTRUCTURING_ENGINES = {
@@ -160,7 +158,6 @@ export function generateExternalImport(
       let value = name;
       if (!isCommonJS) {
         value = NAMESPACE_TEMPLATE({
-          NAMESPACE: t.objectExpression([]),
           MODULE: value,
         }).expression;
       }
@@ -212,7 +209,6 @@ export function generateExternalImport(
 
     if (!isCommonJS) {
       require = NAMESPACE_TEMPLATE({
-        NAMESPACE: t.objectExpression([]),
         MODULE: require,
       }).expression;
     }
@@ -248,7 +244,20 @@ export function generateExternalImport(
     for (let [name] of (Object.entries(decl.getBindingIdentifierPaths()): Array<
       [string, any],
     >)) {
-      removeReplaceBinding(path.scope, name, next);
+      if (path.scope.hasOwnBinding(name)) {
+        removeReplaceBinding(path.scope, name, next);
+      } else {
+        path.scope.registerDeclaration(next);
+      }
+    }
+
+    if (
+      t.isCallExpression(next.node.init) &&
+      !t.isIdentifier(next.node.init.callee, {name: 'require'})
+    ) {
+      // $parcel$exportWildcard or $parcel$interopDefault
+      let id = next.get('init.callee');
+      path.scope.getBinding(id.node.name).reference(id);
     }
   }
 }

@@ -98,10 +98,19 @@ function dereferenceIdentifier(node, scope) {
   }
 }
 
-export function removeReplaceBinding(scope: any, name: string, newPath: any) {
+export function removeReplaceBinding(
+  scope: any,
+  name: string,
+  newPath: any,
+  newKind?: string,
+) {
   let binding = scope.getBinding(name);
   let old = binding.path;
   binding.path = newPath;
+  binding.identifier = newPath.getBindingIdentifiers()[name];
+  if (newKind) {
+    binding.kind = newKind;
+  }
   if (t.isIdentifier(old.node.id)) {
     old.node.id.name = scope.generateUid();
     old.remove();
