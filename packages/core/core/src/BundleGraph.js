@@ -288,6 +288,19 @@ export default class BundleGraph {
     ).every(node => node.type === 'bundle' && node.value.type === type);
   }
 
+  getParentBundles(bundle: Bundle): Array<Bundle> {
+    return flatMap(
+      this._graph.getNodesConnectedTo(
+        nullthrows(this._graph.getNode(bundle.id)),
+        'bundle',
+      ),
+      node => this._graph.getNodesConnectedTo(node, 'bundle'),
+    ).map(node => {
+      invariant(node.type === 'bundle');
+      return node.value;
+    });
+  }
+
   isAssetInAncestorBundles(bundle: Bundle, asset: Asset): boolean {
     let parentBundleNodes = flatMap(
       this._graph.getNodesConnectedTo(
